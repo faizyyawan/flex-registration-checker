@@ -99,6 +99,12 @@ def detect_state(url: str, html: str) -> PageState:
         if marker in lower_html:
             return PageState("closed", f"closed marker: {marker}")
 
+    if "/home" in lower_url or (
+        "/student/courseregistration" not in lower_url
+        and any(marker in lower_html for marker in HOME_MARKERS)
+    ):
+        return PageState("home", "portal home detected")
+
     has_registration_form = 'id="courseregform"' in lower_html or "id='courseregform'" in lower_html
     has_registration_control = any(
         token in lower_html
@@ -117,11 +123,5 @@ def detect_state(url: str, html: str) -> PageState:
     has_form_control = any(token in lower_html for token in ("<select", "<button", "type=\"submit\"", "type='submit'"))
     if has_open_marker and has_form_control:
         return PageState("open", "registration controls detected")
-
-    if "/home" in lower_url or (
-        "/student/courseregistration" not in lower_url
-        and any(marker in lower_html for marker in HOME_MARKERS)
-    ):
-        return PageState("home", "portal home detected")
 
     return PageState("unknown", "no decisive marker")

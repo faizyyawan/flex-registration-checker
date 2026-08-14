@@ -53,10 +53,15 @@ class FlexWatcher:
         await self._safe_goto(page, LOGIN_URL)
         await self._fill_login(page)
         self.log("Solve reCAPTCHA in browser, then click Sign In.")
+        last_login_status = ""
 
         while True:
             await asyncio.sleep(2)
             state = await self._current_state(page)
+            login_status = f"{state.status}: {state.reason}; url={page.url}"
+            if login_status != last_login_status:
+                self.log(login_status)
+                last_login_status = login_status
 
             if state.is_home:
                 self.log("Home page verified.")

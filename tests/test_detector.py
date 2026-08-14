@@ -60,6 +60,20 @@ class DetectStateTests(unittest.TestCase):
         )
         self.assertEqual(state.status, "home")
 
+    def test_home_page_with_popup_button_is_home(self):
+        state = detect_state(
+            "https://flexstudent.nu.edu.pk/Home",
+            """
+            <div id="m_ver_menu">
+                <a href="/Student/CourseRegistration?dump=x">Course Registration</a>
+            </div>
+            <div class="modal show">
+                <button type="button">Close</button>
+            </div>
+            """,
+        )
+        self.assertEqual(state.status, "home")
+
     def test_unclear_page_is_unknown(self):
         state = detect_state(
             "https://flexstudent.nu.edu.pk/Student/CourseRegistration",
