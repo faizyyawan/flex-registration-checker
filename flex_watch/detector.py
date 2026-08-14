@@ -10,6 +10,13 @@ LOGIN_MARKERS = (
     "forgotten password",
 )
 
+CAPTCHA_ERROR_MARKERS = (
+    "incorrect recaptcha",
+    "invalid recaptcha",
+    "recaptcha incorrect",
+    "recaptcha invalid",
+)
+
 CLOSED_MARKERS = (
     "not active yet",
     "registration is closed",
@@ -69,6 +76,10 @@ class PageState:
         return self.status == "login"
 
     @property
+    def is_captcha_error(self) -> bool:
+        return self.status == "captcha_error"
+
+    @property
     def is_closed(self) -> bool:
         return self.status == "closed"
 
@@ -84,6 +95,13 @@ class PageState:
 def detect_state(url: str, html: str) -> PageState:
     lower_url = url.lower()
     lower_html = html.lower()
+
+    for marker in CAPTCHA_ERROR_MARKERS:
+        if marker in lower_html:
+            return PageState("captcha_error", f"captcha marker: {marker}")
+
+    if "recaptcha" in lower_html and ("incorrect" in lower_html or "invalid" in lower_html):
+        return PageState("captcha_error", "captcha invalid/incorrect")
 
     if "/login" in lower_url or any(marker in lower_html for marker in LOGIN_MARKERS):
         return PageState("login", "redirected to login")

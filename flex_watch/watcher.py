@@ -51,8 +51,7 @@ class FlexWatcher:
 
     async def _ensure_login(self, page: Page) -> None:
         await self._safe_goto(page, LOGIN_URL)
-        await self._fill_login(page)
-        self.log("Solve reCAPTCHA in browser, then click Sign In.")
+        await self._run_login_attempt(page)
         last_login_status = ""
 
         while True:
@@ -67,11 +66,18 @@ class FlexWatcher:
                 self.log("Home page verified.")
                 return
 
+            if state.is_captcha_error:
+                self.log("Incorrect reCAPTCHA. Reloading login and trying again.")
+                await self._safe_goto(page, LOGIN_URL)
+                await self._run_login_attempt(page)
+                last_login_status = ""
+                continue
+
             if state.is_error:
                 self.log("Error after login. Returning to login screen.")
                 await self._safe_goto(page, LOGIN_URL)
-                await self._fill_login(page)
-                self.log("Solve reCAPTCHA again if Flex asks, then click Sign In.")
+                await self._run_login_attempt(page)
+                last_login_status = ""
                 continue
 
     async def _fill_login(self, page: Page) -> None:
@@ -80,6 +86,42 @@ class FlexWatcher:
             await page.fill("input[name='password']", self.config.flex_password)
         except Exception as exc:
             self.log(f"Login form fill skipped/failed: {exc}")
+
+    async def _run_login_attempt(self, page: Page) -> None:
+        await self._fill_login(page)
+        self.log("Credentials filled. Clicking reCAPTCHA area in 5s.")
+        await asyncio.sleep(5)
+        await self._click_recaptcha_area(page)
+        self.log("Pressing Sign In in 10s.")
+        await asyncio.sleep(10)
+        await self._click_sign_in(page)
+
+    async def _click_recaptcha_area(self, page: Page) -> None:
+        try:
+            frame = page.frame_locator("iframe[title*='reCAPTCHA']").first
+            await frame.locator(".recaptcha-checkbox-border").click(timeout=5000)
+            self.log("Clicked reCAPTCHA checkbox.")
+            return
+        except Exception:
+            pass
+
+        try:
+            box = await page.locator(".g-recaptcha").bounding_box(timeout=5000)
+            if box:
+                await page.mouse.click(box["x"] + 24, box["y"] + 24)
+                self.log("Clicked reCAPTCHA area.")
+                return
+        except Exception:
+            pass
+
+        self.log("Could not click reCAPTCHA area automatically. Continue manually if needed.")
+
+    async def _click_sign_in(self, page: Page) -> None:
+        try:
+            await page.locator("#m_login_signin_submit").click(timeout=5000)
+            self.log("Pressed Sign In.")
+        except Exception as exc:
+            self.log(f"Sign In click failed: {exc}")
 
     async def login_only(self) -> None:
         playwright, context = await self._new_context()

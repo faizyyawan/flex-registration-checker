@@ -8,6 +8,13 @@ class DetectStateTests(unittest.TestCase):
         state = detect_state("https://flexstudent.nu.edu.pk/Login", "<h2>Sign In</h2>")
         self.assertEqual(state.status, "login")
 
+    def test_incorrect_recaptcha_is_captcha_error(self):
+        state = detect_state(
+            "https://flexstudent.nu.edu.pk/Login",
+            "<form><div class='alert'>Incorrect Recaptcha</div><h2>Sign In</h2></form>",
+        )
+        self.assertEqual(state.status, "captcha_error")
+
     def test_closed_marker_is_closed(self):
         state = detect_state(
             "https://flexstudent.nu.edu.pk/Student/CourseRegistration",
