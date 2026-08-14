@@ -53,10 +53,13 @@ class FlexWatcher:
         await self._safe_goto(page, LOGIN_URL)
         await self._fill_login(page)
         self.log("Solve reCAPTCHA in browser, then click Sign In.")
+        left_login_at: float | None = None
+        forced_home_once = False
 
         while True:
             await asyncio.sleep(2)
             state = await self._current_state(page)
+            current_url = page.url.lower()
 
             if state.is_home:
                 self.log("Home page verified.")
@@ -67,10 +70,23 @@ class FlexWatcher:
                 await self._safe_goto(page, LOGIN_URL)
                 await self._fill_login(page)
                 self.log("Solve reCAPTCHA again if Flex asks, then click Sign In.")
+                left_login_at = None
+                forced_home_once = False
                 continue
 
-            if "/login" not in page.url.lower():
+            if "/login" not in current_url and left_login_at is None:
+                left_login_at = asyncio.get_running_loop().time()
+
+            # After submit, let Flex finish its own redirect. Only force /Home once
+            # if the portal is logged in but stuck on an in-between page.
+            if (
+                "/login" not in current_url
+                and not forced_home_once
+                and left_login_at is not None
+                and asyncio.get_running_loop().time() - left_login_at >= 20
+            ):
                 try:
+                    forced_home_once = True
                     await self._safe_goto(page, HOME_URL)
                     state = await self._current_state(page)
                     if state.is_home:
@@ -291,6 +307,15 @@ class FlexWatcher:
             return ""
 
     async def _open_registration(self, page: Page) -> None:
+        current_state = await self._current_state(page)
+        if "/Student/CourseRegistration" in page.url and not current_state.is_error and not current_state.is_login:
+            self.registration_url = page.url
+            await self._safe_goto(page, self.registration_url)
+            return
+
+        if "/Student/CourseRegistration" in page.url and current_state.is_error:
+            self.log("Registration page showed error. Returning to Home.")
+
         await self._safe_goto(page, HOME_URL)
         state = await self._current_state(page)
         if state.is_error:
