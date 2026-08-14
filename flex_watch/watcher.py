@@ -297,14 +297,32 @@ class FlexWatcher:
     async def _click_registration_menu(self, page: Page) -> str:
         locator = page.locator('a[href*="/Student/CourseRegistration"]').filter(has_text="Course Registration").first
         try:
-            await locator.click()
-            await page.wait_for_url(
-                "**/Student/CourseRegistration**",
-                timeout=int(self.config.navigation_timeout_seconds * 1000),
-            )
-            return page.url
+            for attempt in range(2):
+                if attempt:
+                    await self._dismiss_home_popup(page)
+                await locator.click()
+                try:
+                    await page.wait_for_url(
+                        "**/Student/CourseRegistration**",
+                        timeout=int(self.config.navigation_timeout_seconds * 1000),
+                    )
+                    return page.url
+                except PlaywrightTimeoutError:
+                    if attempt == 0:
+                        self.log("Registration click did not navigate. Dismissing popup and retrying.")
+                        continue
+                    raise
         except Exception:
             return ""
+        return ""
+
+    async def _dismiss_home_popup(self, page: Page) -> None:
+        try:
+            await page.keyboard.press("Escape")
+            await page.mouse.click(20, 20)
+            await asyncio.sleep(0.3)
+        except Exception:
+            pass
 
     async def _open_registration(self, page: Page) -> None:
         current_state = await self._current_state(page)
