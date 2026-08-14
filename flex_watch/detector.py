@@ -49,6 +49,9 @@ HOME_MARKERS = (
     "hello mr",
     'id="m_ver_menu"',
     "/student/courseregistration",
+    "course registration",
+    "/login/logout",
+    "my profile",
 )
 
 

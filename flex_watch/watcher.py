@@ -53,13 +53,10 @@ class FlexWatcher:
         await self._safe_goto(page, LOGIN_URL)
         await self._fill_login(page)
         self.log("Solve reCAPTCHA in browser, then click Sign In.")
-        left_login_at: float | None = None
-        forced_home_once = False
 
         while True:
             await asyncio.sleep(2)
             state = await self._current_state(page)
-            current_url = page.url.lower()
 
             if state.is_home:
                 self.log("Home page verified.")
@@ -70,34 +67,7 @@ class FlexWatcher:
                 await self._safe_goto(page, LOGIN_URL)
                 await self._fill_login(page)
                 self.log("Solve reCAPTCHA again if Flex asks, then click Sign In.")
-                left_login_at = None
-                forced_home_once = False
                 continue
-
-            if "/login" not in current_url and left_login_at is None:
-                left_login_at = asyncio.get_running_loop().time()
-
-            # After submit, let Flex finish its own redirect. Only force /Home once
-            # if the portal is logged in but stuck on an in-between page.
-            if (
-                "/login" not in current_url
-                and not forced_home_once
-                and left_login_at is not None
-                and asyncio.get_running_loop().time() - left_login_at >= 20
-            ):
-                try:
-                    forced_home_once = True
-                    await self._safe_goto(page, HOME_URL)
-                    state = await self._current_state(page)
-                    if state.is_home:
-                        self.log("Home page verified.")
-                        return
-                    if state.is_error:
-                        self.log("Home failed after login. Returning to login screen.")
-                        await self._safe_goto(page, LOGIN_URL)
-                        await self._fill_login(page)
-                except Exception as exc:
-                    self.log(f"Home verification failed: {exc}")
 
     async def _fill_login(self, page: Page) -> None:
         try:
@@ -237,16 +207,13 @@ class FlexWatcher:
             self.log(f"Using generated registration link: {discovered}")
             return discovered
 
-        try:
-            await self._safe_goto(page, HOME_URL)
-            discovered = await self._find_registration_link(page)
-            if discovered:
-                self.log(f"Using generated registration link: {discovered}")
-                return discovered
-        except Exception as exc:
-            self.log(f"Home link scan failed: {exc}")
-
         self.log("No generated registration link found yet.")
+        await self._dismiss_home_popup(page)
+        discovered = await self._find_registration_link(page)
+        if discovered:
+            self.log(f"Using generated registration link after popup dismiss: {discovered}")
+            return discovered
+
         discovered = await self._click_registration_menu(page)
         if discovered:
             self.log(f"Clicked registration menu: {discovered}")
@@ -334,8 +301,11 @@ class FlexWatcher:
         if "/Student/CourseRegistration" in page.url and current_state.is_error:
             self.log("Registration page showed error. Returning to Home.")
 
-        await self._safe_goto(page, HOME_URL)
-        state = await self._current_state(page)
+        if current_state.is_home:
+            state = current_state
+        else:
+            await self._safe_goto(page, HOME_URL)
+            state = await self._current_state(page)
         if state.is_error:
             self.log("Home showed error while trying registration.")
             return
