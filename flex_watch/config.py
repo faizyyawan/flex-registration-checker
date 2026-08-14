@@ -22,6 +22,7 @@ class Config:
     navigation_timeout_seconds: float = 120.0
     error_retry_seconds: float = 5.0
     alarm_sound_path: str = ""
+    unexpected_alarm_sound_path: str = ""
 
 
 def _parse_env(path: Path) -> dict[str, str]:
@@ -77,4 +78,5 @@ def load_config(require_credentials: bool = True, require_registration_url: bool
         navigation_timeout_seconds=_float_value(values, "NAVIGATION_TIMEOUT_SECONDS", 120.0),
         error_retry_seconds=_float_value(values, "ERROR_RETRY_SECONDS", 5.0),
         alarm_sound_path=values.get("ALARM_SOUND_PATH", ""),
+        unexpected_alarm_sound_path=values.get("UNEXPECTED_ALARM_SOUND_PATH", ""),
     )

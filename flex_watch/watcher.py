@@ -21,6 +21,7 @@ class FlexWatcher:
     def __init__(self, config: Config) -> None:
         self.config = config
         self.registration_url = self._initial_registration_url(config.registration_url)
+        self._unexpected_alerted: set[str] = set()
         LOG_DIR.mkdir(exist_ok=True)
         self.log_path = LOG_DIR / f"watch-{dt.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
 
@@ -183,6 +184,7 @@ class FlexWatcher:
                     self.log(status_line)
                     if state.status in {"unknown", "error"}:
                         await self._save_unknown_page(page)
+                        await self._alert_unexpected(page, state)
                     last_status = status_line
 
                 if state.is_login:
@@ -210,6 +212,7 @@ class FlexWatcher:
                     await asyncio.Event().wait()
 
                 if state.is_error:
+                    await self._alert_unexpected(page, state)
                     self.log(f"Site error/loading issue. Retrying in {int(self.config.error_retry_seconds)}s.")
                     await asyncio.sleep(self.config.error_retry_seconds)
                     continue
@@ -403,6 +406,22 @@ class FlexWatcher:
             self.log(f"Saved unknown page: {path}")
         except Exception as exc:
             self.log(f"Failed to save unknown page: {exc}")
+
+    async def _alert_unexpected(self, page: Page, state: PageState) -> None:
+        key = f"{state.status}:{state.reason}:{page.url}"
+        if key in self._unexpected_alerted:
+            return
+        self._unexpected_alerted.add(key)
+
+        sound_path = self.config.unexpected_alarm_sound_path or self.config.alarm_sound_path
+        await urgent_alarm(
+            "Flex watcher needs attention",
+            f"Unexpected state: {state.status}. {state.reason}",
+            ntfy_topic_url=self.config.ntfy_topic_url,
+            link=page.url,
+            sound_path=sound_path,
+            repeat_phone_seconds=60,
+        )
 
 
 async def test_alert(config: Config) -> None:

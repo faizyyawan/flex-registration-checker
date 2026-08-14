@@ -31,6 +31,8 @@ When registration says `not active yet`, the watcher waits `CLOSED_RELOAD_SECOND
 
 If Flex is slow, the watcher waits up to `NAVIGATION_TIMEOUT_SECONDS` (default 120 seconds). If an ASP.NET yellow error page appears after login, it returns to the login screen and restarts login. If an error appears after clicking Course Registration, it returns to Home and retries the registration flow. Unknown/error HTML is saved under `logs/`.
 
+If an unexpected/unknown state appears, the watcher sends an urgent phone notification and plays `UNEXPECTED_ALARM_SOUND_PATH` (default example: `C:\Windows\Media\Ring10.wav`) so you can intervene.
+
 ## Notes
 
 - If Flex uses idle timeout, polling/keepalive should keep the session alive.
