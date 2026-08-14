@@ -1,0 +1,8 @@
+.env
+.playwright-profile/
+logs/
+__pycache__/
+*.pyc
+.pytest_cache/
+burp-code.md
+tests.md
